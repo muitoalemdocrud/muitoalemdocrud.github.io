@@ -10,7 +10,7 @@
 ############################
 
 # Name of website
-title: Paulo Dev Blog
+title: Muito Além do CRUD
 # Your name to show in the footer
 author: Paulo Henrique
 
@@ -19,7 +19,8 @@ author: Paulo Henrique
 ###############################################
 
 navbar-links:
-  Meu último post: "/2023-07-26-javascript-ends"
+  Meu último post: "/__latest__"
+  Sobre mim: "/aboutme"
 
 ################
 # --- Logo --- #
@@ -89,7 +90,7 @@ share-links-active:
 
 # How to display the link to your website in the footer
 # Remove this if you don't want a link in the footer
-url-pretty: "paulohsilvavieira.com"
+url-pretty: "muitoalemdocrud.github.io"
 
 # Excerpt word length - Truncate the excerpt of each post on the feed page to the specified number of words
 excerpt_length: 50

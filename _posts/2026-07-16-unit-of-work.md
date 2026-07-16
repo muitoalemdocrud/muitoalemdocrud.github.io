@@ -8,66 +8,87 @@ comments: true
 
 ***Opa pessoal! Tudo bom com vocês?***
 
-No meu tempo livre tento criar aplicaçoes que me estimulam a aplicar boas praticas e arquitetura de software e o que venho trazer hoje é um conhecimento que ganhei faz um tempo, mas é forma elegante ao aplicar uma boa pratica para sistemas de grande porte, transações de banco de dados
+No meu tempo livre, gosto de criar aplicações que me desafiem a aplicar boas práticas e conceitos de arquitetura de software. O que venho trazer hoje é um conhecimento que adquiri há algum tempo: uma forma elegante de aplicar uma boa prática em sistemas de grande porte utilizando transações de banco de dados.
 
-Grandes bancos de dados possuem a capacidade de fazer alterações atomicas no banco, garantindo que caso ocorra algum erro no fluxo os dados alterados voltam para o seu estado atual, deixando o banco de dados seguro para proxima tentativa.
+Grandes bancos de dados possuem a capacidade de realizar alterações atômicas, garantindo que, caso ocorra algum erro durante o fluxo, todas as alterações realizadas sejam desfeitas, retornando o banco de dados ao seu estado anterior. Isso torna a aplicação muito mais segura para uma nova tentativa da operação.
 
-Usar transaçoes atomicas são uma das boas praticas para garantir a resiliencia do sistema, e hoje vou mostrar uma forma elegante para aplicar esse boa pratica, deixando isolado a infraestrutura e dominio.
+Utilizar transações atômicas é uma das melhores práticas para garantir a resiliência de um sistema. Neste artigo, vou mostrar uma forma elegante de aplicar essa boa prática, mantendo a infraestrutura isolada do domínio.
 
-De acordo com as boas praticas de arquitetura limpa, o dominio deve ser agnostico a tecnologia usada, ou seja, nao deve ter implementaçoes reais da tenologia dentro de um caso de uso.
-
+De acordo com os princípios da Clean Architecture, o domínio deve ser agnóstico à tecnologia utilizada. Ou seja, ele não deve possuir implementações concretas de infraestrutura dentro de um caso de uso.
 
 ## O problema que me fez buscar essa solução
 
-Estou desenvolvendo um aplicação focada em criptomoedas, um exchange de cripto e ela tem um otimo fluxo de trabalho que estimula a usar as melhores praticas para um sistema desse tipo e trouxe um problema que normalmente utiliza transaçoes atomicas:
+Estou desenvolvendo uma aplicação focada em criptomoedas, uma exchange de criptoativos. Ela possui um fluxo de trabalho extremamente interessante, que incentiva o uso de diversas boas práticas utilizadas em sistemas financeiros.
 
-Imagine confirmar um depósito de Bitcoin na exchange. Para o sistema, isso não é uma query — são **três operações atômicas**:
-1. Recebe o evento confirmação de deposito de um fila
+Durante o desenvolvimento, surgiu um problema bastante comum, que normalmente é resolvido através de transações atômicas.
+
+Imagine a confirmação de um depósito de Bitcoin na exchange. Para o sistema, isso não representa apenas uma query, mas sim **cinco operações que precisam acontecer de forma atômica**:
+
+1. Recebe o evento de confirmação de depósito de uma fila
 2. Procura a transação financeira no banco de dados
-3. Atualizar o status da transação para `CONFIRMED`
-4. Criar um **débito** na tabela ledger (a exchange recebeu)
-5. Criar um **crédito** no tabela ledger (o saldo do usuário aumentou)
+3. Atualiza o status da transação para `CONFIRMED`
+4. Cria um **débito** na tabela ledger (a exchange recebeu)
+5. Cria um **crédito** na tabela ledger (o saldo do usuário aumentou)
 
-Se a operação 3 funcionar mas a 4 falhar, o ledger fica desbalanceado. Se a 5 funcionar mas a 4 falhar, o saldo do usuário aumenta sem lastro. Em um sistema financeiro, isso é inaceitável.
+Se a operação **3** funcionar, mas a **4** falhar, o ledger ficará desbalanceado.
 
-Quem ja conhece transações atomicas ja sabe como funciona, mas como fazer esse fluxo isolado do dominio? Como deixar o dominio sabendo desse processo sem saber qual banco de dados ta sendo usado?
+Se a operação **5** funcionar, mas a **4** falhar, o saldo do usuário aumentará sem qualquer lastro financeiro.
 
-Ai chegamos no conceito de UnitOfWork.
+Quem já conhece transações atômicas provavelmente sabe como resolver esse problema utilizando uma transação do banco de dados. Mas surgiu outra dúvida:
 
+*Como fazer isso mantendo o domínio completamente isolado da infraestrutura?
+
+Ou ainda:
+
+Como permitir que o domínio saiba que está executando uma operação transacional sem conhecer qual banco de dados está sendo utilizado?
+
+Foi justamente nesse momento que cheguei ao conceito de Unit of Work.
 
 
 ## Arquitetura da API
 
-A api usa **NestJS + TypeScript + PostgreSQL** (sem ORM) com Clean Architecture e Domain-Driven Design. Cada módulo de negócio tem suas próprias camadas:
 
-```
+A API utiliza **NestJS + TypeScript + PostgreSQL** (sem ORM), seguindo os princípios da **Clean Architecture** e do **Domain-Driven Design (DDD)**.
+
+Cada módulo de negócio possui suas próprias camadas:
+
+
+
+```text
 src/
 ├── shared/                          ← domínio compartilhado
-│   ├── unit-of-work.ts              ← a abstração
+│   ├── unit-of-work.ts              ← abstração
 │   └── domain.error.ts
 ├── infrastructure/
 │   └── database/
-│       ├── database.service.ts      ← pool + funçoes de transação atomica
+│       ├── database.service.ts      ← pool + funções de transação
 │       ├── unit-of-work.postgres.ts ← implementação concreta
 └── modules/
     └── financial/
         ├── domain/                  ← entidades + interfaces Repository
-        ├── application/             ← use cases
+        ├── application/             ← casos de uso
         ├── infrastructure/          ← implementações PostgreSQL
         └── presentation/            ← controllers + DTOs
 ```
 
-A regra de dependência é clara: **dependências só apontam para dentro**. `domain/` nunca importa de `infrastructure/`. `application/` nunca importa de `presentation/`.
+A regra de dependência é clara:
 
-O Unit of Work vive nessa estrutura como uma ponte entre o domínio e a infraestrutura — sem acoplar um ao outro.
+As dependências sempre apontam para dentro da aplicação.
+
+Isso significa que:
+
+- `domain/` nunca importa nada de `infrastructure/`;
+- `application/` nunca importa nada de `presentation/`.
+
+O **Unit of Work** ocupa exatamente esse espaço entre domínio e infraestrutura, funcionando como uma ponte entre ambos, sem gerar acoplamento.
+
+---
 
 ## Começando pela abstração (Domain)
 
-Tudo começa com uma interface simples em `src/shared/unit-of-work.ts`:
+Tudo começa com uma classe abstrata simples em:
 
 ```typescript
-import { TransactionRepository } from '@/modules/financial/domain/transaction.repository';
-import { LedgerEntryRepository } from '@/modules/financial/domain/ledger-entry.repository';
 
 export interface Repositories {
   transactionRepo: TransactionRepository;
@@ -87,7 +108,6 @@ export abstract class UnitOfWork {
 
 ### QueryExecutor — a base
 
-Antes de tudo, existe uma abstração para execução de queries em `src/infrastructure/database/query-executor.ts`:
 
 ```typescript
 export abstract class QueryExecutor {
@@ -98,7 +118,7 @@ export abstract class QueryExecutor {
 }
 ```
 
-Tanto o `DatabaseService` (pool-level) implementam essa abstração. Isso permite que os repositórios sejam **agnósticos** — eles recebem um `QueryExecutor` como dependencia e não precisam saber se estão operando dentro de uma transação ou diretamente no pool.
+Tanto o `DatabaseService` (pool-level) implementam essa abstração. Isso permite que os repositórios sejam **agnósticos** — eles recebem um `QueryExecutor` como dependência e não precisam saber se estão operando dentro de uma transação ou diretamente no pool.
 
 ### DatabaseService — o pool
 
@@ -226,7 +246,7 @@ Olha o que acontece aqui:
 1. O use case **não sabe** que está dentro de uma transação PostgreSQL
 2. Os repositórios são **tipados automaticamente** — `transactionRepo` é `TransactionRepository`, `ledgerRepo` é `LedgerEntryRepository`
 3. Se `ledgerRepo.save(credit)` falhar, **todas as operações** são revertidas
-4. A regra de dupla entrada (Σ débitos = Σ créditos) é garantida pelo atomicidade da transação
+4. A regra de dupla entrada (Σ débitos = Σ créditos) é garantida pela atomicidade da transação
 
 O use case injeta `UnitOfWork` (a abstração), não `DatabaseService` (a infraestrutura). Isso satisfaz a regra de dependência da Clean Architecture.
 
@@ -252,7 +272,7 @@ Sem pool de conexão, sem transação real, sem PostgreSQL rodando. O teste vali
 
 O Unit of Work resolveu um problema real que eu tinha no meu projeto: **garantir que operações de múltiplas tabelas sejam atômicas**. Mas ele também resolve um problema arquitetural: manter a Clean Architecture íntegra enquanto faz isso.
 
-A implementação possui sim uma implementação mais trabalhosa, mas garante esse isolamento de fluxos onde arquitetura limpa é utilizada
+A implementação possui sim uma construção mais trabalhosa, mas garante esse isolamento de fluxos em que a arquitetura limpa é utilizada
 
 Então é isso pessoal! Comente o que achou, já usaram Unit of Work em algum projeto? Como resolveram o problema de atomicidade?
 
