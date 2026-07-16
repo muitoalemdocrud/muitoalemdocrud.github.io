@@ -14,7 +14,7 @@ Grandes bancos de dados possuem a capacidade de realizar alterações atômicas,
 
 Utilizar transações atômicas é uma das melhores práticas para garantir a resiliência de um sistema. Neste artigo, vou mostrar uma forma elegante de aplicar essa boa prática, mantendo a infraestrutura isolada do domínio.
 
-De acordo com os princípios da Clean Architecture, o domínio deve ser agnóstico à tecnologia utilizada. Ou seja, ele não deve possuir implementações concretas de infraestrutura dentro de um caso de uso.
+De acordo com os princípios da Clean Architecture, o domínio deve ser agnóstico à tecnologia utilizada. Ou seja, ele não deve possuir implementações concretas de infraestrutura dentro de uma regra de negócio.
 
 ## O problema que me fez buscar essa solução
 
@@ -36,14 +36,13 @@ Se a operação **5** funcionar, mas a **4** falhar, o saldo do usuário aumenta
 
 Quem já conhece transações atômicas provavelmente sabe como resolver esse problema utilizando uma transação do banco de dados. Mas surgiu outra dúvida:
 
-*Como fazer isso mantendo o domínio completamente isolado da infraestrutura?
+*Como fazer isso mantendo o domínio completamente isolado da infraestrutura?*
 
 Ou ainda:
 
-Como permitir que o domínio saiba que está executando uma operação transacional sem conhecer qual banco de dados está sendo utilizado?
+*Como permitir que o domínio saiba que está executando uma operação transacional sem conhecer qual banco de dados está sendo utilizado?*
 
-Foi justamente nesse momento que cheguei ao conceito de Unit of Work.
-
+Após alguns momentos de estudo cheguei ao conceito de Unit of Work.
 
 ## Arquitetura da API
 
@@ -277,8 +276,9 @@ A implementação possui sim uma construção mais trabalhosa, mas garante esse 
 Então é isso pessoal! Comente o que achou, já usaram Unit of Work em algum projeto? Como resolveram o problema de atomicidade?
 
 ## Referências
-• Clean Architecture — Robert C. Martin
-• Patterns of Enterprise Application Architecture — Martin Fowler (Unit of Work)
-• PostgreSQL Documentation — Transactions
-• NestJS Documentation — Dependency Injection
-• Projeto utilizado no artigo: [MyBitcoin - API](https://github.com/paulohsilvavieira/mybitcoin-api)
+
+- Clean Architecture — Robert C. Martin
+- Patterns of Enterprise Application Architecture — Martin Fowler (Unit of Work)
+- PostgreSQL Documentation — Transactions
+- NestJS Documentation — Dependency Injection
+- Projeto utilizado no artigo: [MyBitcoin - API](https://github.com/paulohsilvavieira/mybitcoin-api)
